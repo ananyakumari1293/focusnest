@@ -23,18 +23,18 @@ export default function Workspace() {
   }, [isOnboardingComplete, navigate]);
 
   // Reusable logout function for future integration (signOut from Firebase Auth)
-  const handleLogout = async (): Promise<void> => {
-    try {
-      const { signOut } = await import('firebase/auth');
-      const { auth } = await import('../services/firebase');
-      await signOut(auth);
-      navigate('/signup');
-    } catch (e) {
-      console.error('Logout error', e);
-      // Fallback redirect
-      navigate('/signup');
-    }
-  };
+//   const handleLogout = async (): Promise<void> => {
+//     try {
+//       const { signOut } = await import('firebase/auth');
+//       const { auth } = await import('../services/firebase');
+//       await signOut(auth);
+//       navigate('/signup');
+//     } catch (e) {
+//       console.error('Logout error', e);
+//       // Fallback redirect
+//       navigate('/signup');
+//     }
+//   };
 
   // Load Google Fonts for beautiful typography
   useEffect(() => {
@@ -54,7 +54,7 @@ export default function Workspace() {
     return localStorage.getItem('focusnest_username') || '';
   });
 
-  const [role, setRole] = useState<string>(() => {
+  const [role] = useState<string>(() => {
     return localStorage.getItem('focusnest_role') || '';
   });
 
