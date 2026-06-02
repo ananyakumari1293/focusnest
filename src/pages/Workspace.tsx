@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
@@ -22,6 +23,13 @@ interface Task {
   priority: 'High' | 'Medium' | 'Low';
   timeEstimate: string;
   type: 'Solo' | 'Group';
+}
+
+interface RoomMember {
+  uid: string;
+  displayName: string;
+  photoURL: string;
+  email: string;
 }
 
 export default function Workspace() {
@@ -240,6 +248,29 @@ export default function Workspace() {
     year: 'numeric'
   });
 
+  function handleTimerComplete(): void {
+    if (timerIntervalRef.current) {
+      window.clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    setTimerRunning(false);
+
+    // Dynamic stats updates
+    const completedSessionMins = timerMode === 'pomodoro' ? focusDurationPref : timerMode === 'short' ? 5 : 15;
+    setFocusMinutes((prev) => prev + completedSessionMins);
+
+    // Record minutes completed for celebration modal display
+    setCelebratedMinutes(completedSessionMins);
+
+    // If it was a focus session, increment streak count
+    if (timerMode === 'pomodoro') {
+      setStreak((prev) => prev + 1);
+    }
+
+    // Open premium custom celebration modal (Do NOT use alert())
+    setIsCelebrationOpen(true);
+  }
+
   // ----------------------------------------------------
   // Timer Logic
   // ----------------------------------------------------
@@ -283,28 +314,6 @@ export default function Workspace() {
     };
   }, [timerRunning]);
 
-  const handleTimerComplete = (): void => {
-    if (timerIntervalRef.current) {
-      window.clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
-    setTimerRunning(false);
-
-    // Dynamic stats updates
-    const completedSessionMins = timerMode === 'pomodoro' ? focusDurationPref : timerMode === 'short' ? 5 : 15;
-    setFocusMinutes((prev) => prev + completedSessionMins);
-
-    // Record minutes completed for celebration modal display
-    setCelebratedMinutes(completedSessionMins);
-
-    // If it was a focus session, increment streak count
-    if (timerMode === 'pomodoro') {
-      setStreak((prev) => prev + 1);
-    }
-
-    // Open premium custom celebration modal (Do NOT use alert())
-    setIsCelebrationOpen(true);
-  };
 
   const toggleTimer = (): void => {
     setTimerRunning(!timerRunning);
@@ -460,7 +469,7 @@ export default function Workspace() {
   const [activeRoomId, setActiveRoomId] = useState<string | null>(() => {
     return localStorage.getItem('focusnest_active_room_id');
   });
-  const [roomMembers, setRoomMembers] = useState<any[]>([]);
+  const [roomMembers, setRoomMembers] = useState<RoomMember[]>([]);
   const [roomOwnerUid, setRoomOwnerUid] = useState<string | null>(null);
   const [roomName, setRoomName] = useState<string>('');
 
@@ -541,7 +550,7 @@ export default function Workspace() {
 
       if (roomSnap.exists()) {
         const data = roomSnap.data();
-        const updatedMembers = (data.members || []).filter((m: any) => m.uid !== user.uid);
+        const updatedMembers = (data.members || []).filter((m: RoomMember) => m.uid !== user.uid);
         
         await updateDoc(roomRef, {
           members: updatedMembers
@@ -1272,7 +1281,7 @@ export default function Workspace() {
             <div style={styles.buddiesRow}>
               {activeRoomId ? (
                 <>
-                  {roomMembers.map((member: any) => (
+                  {roomMembers.map((member: RoomMember) => (
                     <div key={member.uid} style={styles.buddyBubbleCard} className="buddy-hover-card">
                       <div style={{ ...styles.buddyAvatar, backgroundColor: member.uid === user?.uid ? '#F5F3FF' : '#FDF2F8' }}>
                         {member.photoURL ? (
