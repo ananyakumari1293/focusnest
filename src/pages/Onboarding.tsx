@@ -112,8 +112,13 @@ export default function Onboarding() {
     // TODO: Save onboarding states to Firestore database
     // example: await setDoc(doc(db, "users", auth.currentUser.uid), { name, role, wakeTime, sleepTime, focusSession, focusGoal: focusGoal === 'Other' ? customGoal : focusGoal });
     
-    // Navigate to the main workspace page
-    navigate('/workspace');
+    // Navigate to the main workspace page or execute pending join if invited
+    const pendingRoomId = localStorage.getItem('focusnest_pending_join');
+    if (pendingRoomId) {
+      navigate(`/join/${pendingRoomId}`);
+    } else {
+      navigate('/workspace');
+    }
   };
 
   // Progress percentage logic

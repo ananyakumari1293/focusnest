@@ -452,9 +452,122 @@ export default function Workspace() {
   };
 
   const [inviteFeedback, setInviteFeedback] = useState<boolean>(false);
-  const handleInviteBuddy = (): void => {
+  const [activeRoomId, setActiveRoomId] = useState<string | null>(() => {
+    return localStorage.getItem('focusnest_active_room_id');
+  });
+  const [roomMembers, setRoomMembers] = useState<any[]>([]);
+  const [roomOwnerUid, setRoomOwnerUid] = useState<string | null>(null);
+  const [roomName, setRoomName] = useState<string>('');
+
+  // 1. Real-time study room listener
+  useEffect(() => {
+    if (!activeRoomId) {
+      setRoomMembers([]);
+      setRoomOwnerUid(null);
+      setRoomName('');
+      return;
+    }
+
+    let unsubscribe = () => {};
+
+    const listenToRoom = async () => {
+      try {
+        const { doc, onSnapshot } = await import('firebase/firestore');
+        const { db } = await import('../services/firebase');
+        
+        unsubscribe = onSnapshot(doc(db, 'studyRooms', activeRoomId), (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            setRoomMembers(data.members || []);
+            setRoomOwnerUid(data.ownerUid || null);
+            setRoomName(data.roomName || '');
+          } else {
+            // Room deleted/no longer exists
+            setActiveRoomId(null);
+            localStorage.removeItem('focusnest_active_room_id');
+          }
+        });
+      } catch (e) {
+        console.warn('Real-time study room listener error: ', e);
+      }
+    };
+
+    listenToRoom();
+
+    return () => unsubscribe();
+  }, [activeRoomId]);
+
+  // 2. Room actions
+  const handleCreateStudyRoom = async (): Promise<void> => {
+    if (!user) return;
+    const randId = Math.random().toString(36).substring(2, 7);
+    const generatedRoomId = `cozy-${randId}`;
+
+    try {
+      const { doc, setDoc } = await import('firebase/firestore');
+      const { db } = await import('../services/firebase');
+
+      const defaultName = user.displayName || localStorage.getItem('focusnest_name') || 'Study Buddy';
+      const defaultAvatar = user.photoURL || localStorage.getItem('focusnest_avatar') || '';
+
+      const roomData = {
+        ownerUid: user.uid,
+        roomName: `${defaultName}'s Cozy Study Room`,
+        createdAt: new Date().toISOString(),
+        members: [{
+          uid: user.uid,
+          displayName: defaultName,
+          photoURL: defaultAvatar,
+          email: user.email || ''
+        }]
+      };
+
+      await setDoc(doc(db, 'studyRooms', generatedRoomId), roomData);
+      
+      localStorage.setItem('focusnest_active_room_id', generatedRoomId);
+      setActiveRoomId(generatedRoomId);
+    } catch (e) {
+      console.error('Failed to create study room', e);
+      alert('🌸 Setup issue. Please check your network or try again.');
+    }
+  };
+
+  const handleLeaveRoom = async (): Promise<void> => {
+    if (!user || !activeRoomId) return;
+
+    try {
+      const { doc, updateDoc, getDoc } = await import('firebase/firestore');
+      const { db } = await import('../services/firebase');
+
+      const roomRef = doc(db, 'studyRooms', activeRoomId);
+      const roomSnap = await getDoc(roomRef);
+
+      if (roomSnap.exists()) {
+        const data = roomSnap.data();
+        const updatedMembers = (data.members || []).filter((m: any) => m.uid !== user.uid);
+        
+        await updateDoc(roomRef, {
+          members: updatedMembers
+        });
+      }
+
+      localStorage.removeItem('focusnest_active_room_id');
+      setActiveRoomId(null);
+      setRoomMembers([]);
+    } catch (e) {
+      console.error('Failed to leave room', e);
+      // Clean up local cache anyway
+      localStorage.removeItem('focusnest_active_room_id');
+      setActiveRoomId(null);
+      setRoomMembers([]);
+    }
+  };
+
+  const handleCopyInviteLink = (): void => {
+    if (!activeRoomId) return;
     setInviteFeedback(true);
-    navigator.clipboard.writeText(window.location.origin + '/signup');
+    const inviteLink = `https://focusnest-workspace.netlify.app/join/${activeRoomId}`;
+    navigator.clipboard.writeText(inviteLink);
     setTimeout(() => {
       setInviteFeedback(false);
     }, 3000);
@@ -1157,43 +1270,109 @@ export default function Workspace() {
 
           {/* GROUP STUDY: STUDY TOGETHER 🤍 */}
           <section style={styles.panelGroup} className="group-panel glass-card shadow-premium desk-panel">
-            <h2 style={styles.panelTitle}>👥 Study Together 🤍</h2>
+            <h2 style={styles.panelTitle}>👥 {roomName || 'Study Together'} 🤍</h2>
 
             <div style={styles.buddiesRow}>
-              {/* Personalized User Bubble (Online status) */}
-              <div style={styles.buddyBubbleCard} className="buddy-hover-card">
-                <div style={{ ...styles.buddyAvatar, backgroundColor: '#F5F3FF' }}>
-                  {username ? username.charAt(0).toUpperCase() : 'A'}
-                  <span 
-                    style={{ ...styles.buddyStatusDot, backgroundColor: '#A8D5BA' }}
-                    title="Active (You)"
-                  />
-                </div>
-                <span style={styles.buddyName}>{username || 'Anu'} 🌸</span>
-                <span style={styles.buddyStatusLabelText}>{role || 'Active'} (You)</span>
-              </div>
+              {activeRoomId ? (
+                <>
+                  {roomMembers.map((member: any) => (
+                    <div key={member.uid} style={styles.buddyBubbleCard} className="buddy-hover-card">
+                      <div style={{ ...styles.buddyAvatar, backgroundColor: member.uid === user?.uid ? '#F5F3FF' : '#FDF2F8' }}>
+                        {member.photoURL ? (
+                          <img src={member.photoURL} alt={member.displayName} style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
+                        ) : (
+                          member.displayName ? member.displayName.charAt(0).toUpperCase() : 'B'
+                        )}
+                        <span 
+                          style={{ ...styles.buddyStatusDot, backgroundColor: '#A8D5BA' }}
+                          title="Online"
+                        />
+                      </div>
+                      <span style={styles.buddyName}>{member.displayName}{member.uid === user?.uid ? ' 🌸' : ''}</span>
+                      <span style={styles.buddyStatusLabelText}>
+                        {member.uid === user?.uid ? 'Active (You)' : member.uid === roomOwnerUid ? '👑 Host' : '🌿 Study Buddy'}
+                      </span>
+                    </div>
+                  ))}
 
-              {/* Empty state study description */}
-              <div style={styles.emptyStudyGroupCard}>
-                <p style={styles.emptyStudyText}>No study partners yet. Invite a friend to focus together.</p>
-              </div>
+                  {roomMembers.length <= 1 && (
+                    <div style={styles.emptyStudyGroupCard}>
+                      <p style={styles.emptyStudyText}>No other study partners in this room yet. Share the invite link!</p>
+                    </div>
+                  )}
 
-              {/* Invitation button */}
-              <div style={styles.inviteBuddyCard}>
-                <button 
-                  onClick={handleInviteBuddy} 
-                  className="btn-scale-secondary"
-                  style={styles.inviteButton}
-                >
-                  Invite Partner
-                </button>
-                <p style={styles.inviteSubText}>Copy desk link to share focus sessions.</p>
-              </div>
+                  <div style={styles.inviteBuddyCard}>
+                    <button 
+                      onClick={handleCopyInviteLink} 
+                      className="btn-scale-secondary"
+                      style={styles.inviteButton}
+                    >
+                      🔗 Copy Invite Link
+                    </button>
+                    <p style={styles.inviteSubText}>Room ID: {activeRoomId} • {roomMembers.length} {roomMembers.length === 1 ? 'member' : 'members'}</p>
+
+                    <button 
+                      onClick={handleLeaveRoom}
+                      className="btn-scale-secondary"
+                      style={{
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        color: '#EF4444',
+                        fontSize: '0.8rem',
+                        fontWeight: 650,
+                        cursor: 'pointer',
+                        padding: '4px 8px',
+                        marginTop: '8px',
+                        outline: 'none',
+                        minHeight: '44px'
+                      }}
+                    >
+                      🚪 Leave Room
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Personalized User Bubble (Online status) */}
+                  <div style={styles.buddyBubbleCard} className="buddy-hover-card">
+                    <div style={{ ...styles.buddyAvatar, backgroundColor: '#F5F3FF' }}>
+                      {username ? username.charAt(0).toUpperCase() : 'A'}
+                      <span 
+                        style={{ ...styles.buddyStatusDot, backgroundColor: '#A8D5BA' }}
+                        title="Active (You)"
+                      />
+                    </div>
+                    <span style={styles.buddyName}>{username || 'Anu'} 🌸</span>
+                    <span style={styles.buddyStatusLabelText}>{role || 'Active'} (You)</span>
+                  </div>
+
+                  <div style={styles.emptyStudyGroupCard}>
+                    <p style={styles.emptyStudyText}>Create a study room to invite partners and focus together.</p>
+                  </div>
+
+                  <div style={styles.inviteBuddyCard}>
+                    <button 
+                      onClick={handleCreateStudyRoom} 
+                      className="btn-scale-primary"
+                      style={{
+                        ...styles.inviteButton,
+                        backgroundColor: '#B794F6',
+                        color: '#FAF9F6',
+                        border: '1.5px solid #2D2A3A',
+                        borderRadius: '8px'
+                      }}
+                    >
+                      🌸 Create Study Room
+                    </button>
+                    <p style={styles.inviteSubText}>Start a cozy space and invite friends.</p>
+                  </div>
+                </>
+              )}
             </div>
 
             {inviteFeedback && (
               <div style={styles.inviteAlertBox}>
-                ✓ Cozy Desk link copied! Share the focus vibes. 🌸
+                ✓ Cozy Room link copied! Share the focus vibes. 🌸
               </div>
             )}
           </section>

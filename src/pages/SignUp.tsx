@@ -32,6 +32,7 @@ export default function SignUp() {
     localStorage.removeItem('focusnest_email');
     localStorage.removeItem('focusnest_name');
     localStorage.removeItem('focusnest_avatar');
+    localStorage.removeItem('focusnest_active_room_id');
   }, []);
 
   // Handle clean view switching
@@ -131,7 +132,12 @@ export default function SignUp() {
       // Email Login User: If onboarding completed, navigate to workspace; else, onboarding
       const isOnboardingComplete = localStorage.getItem("focusnest_onboarding_complete") === "true";
       if (isOnboardingComplete) {
-        navigate("/workspace");
+        const pendingRoomId = localStorage.getItem('focusnest_pending_join');
+        if (pendingRoomId) {
+          navigate(`/join/${pendingRoomId}`);
+        } else {
+          navigate("/workspace");
+        }
       } else {
         navigate("/onboarding");
       }
@@ -175,7 +181,12 @@ export default function SignUp() {
       // Google User: If onboarding completed, workspace; else, onboarding
       const isOnboardingComplete = localStorage.getItem("focusnest_onboarding_complete") === "true";
       if (isOnboardingComplete) {
-        navigate("/workspace");
+        const pendingRoomId = localStorage.getItem('focusnest_pending_join');
+        if (pendingRoomId) {
+          navigate(`/join/${pendingRoomId}`);
+        } else {
+          navigate("/workspace");
+        }
       } else {
         navigate("/onboarding");
       }
@@ -190,7 +201,12 @@ export default function SignUp() {
         
         const isOnboardingComplete = localStorage.getItem("focusnest_onboarding_complete") === "true";
         if (isOnboardingComplete) {
-          navigate("/workspace");
+          const pendingRoomId = localStorage.getItem('focusnest_pending_join');
+          if (pendingRoomId) {
+            navigate(`/join/${pendingRoomId}`);
+          } else {
+            navigate("/workspace");
+          }
         } else {
           navigate("/onboarding");
         }
