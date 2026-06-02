@@ -14,6 +14,8 @@ import {
   getDoc 
 } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
+import { askGemini, type ChatMessage } from '../services/gemini';
+import ReactMarkdown from 'react-markdown';
 
 // FocusNest Custom Interfaces
 interface Task {
@@ -227,6 +229,104 @@ export default function Workspace() {
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<'todo' | 'progress' | 'done' | null>(null);
 
+  // FocusNest AI Assistant Upgraded State
+  interface AiMessage {
+    id: string;
+    sender: 'user' | 'assistant';
+    text: string;
+  }
+
+  const [aiMessages, setAiMessages] = useState<AiMessage[]>(() => {
+    return [
+      {
+        id: 'welcome',
+        sender: 'assistant',
+        text: `Hi ${localStorage.getItem('focusnest_username') || 'Anu'}! I'm your cozy FocusNest companion. 🌸 How can I support your study flow today?`
+      }
+    ];
+  });
+  const [aiLoading, setAiLoading] = useState<boolean>(false);
+  const [customAiInput, setCustomAiInput] = useState<string>('');
+  const [copyIndex, setCopyIndex] = useState<string | null>(null);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [aiMessages, aiLoading]);
+
+  const handleCopyToClipboard = (text: string, msgId: string) => {
+    navigator.clipboard.writeText(text);
+    setCopyIndex(msgId);
+    setTimeout(() => {
+      setCopyIndex(null);
+    }, 2000);
+  };
+
+  const handleSendToAi = async (promptText: string): Promise<void> => {
+    if (!promptText.trim() || aiLoading) return;
+
+    const userMsgId = `user-${Date.now()}`;
+    const newUserMessage: AiMessage = {
+      id: userMsgId,
+      sender: 'user',
+      text: promptText.trim()
+    };
+
+    setAiMessages((prev) => [...prev, newUserMessage]);
+    setCustomAiInput('');
+    setAiLoading(true);
+
+    try {
+      // Get the last 10 messages from current state as history
+      const conversationHistory: ChatMessage[] = aiMessages.slice(-10).map((msg) => ({
+        role: msg.sender === 'user' ? 'user' : 'model',
+        text: msg.text
+      }));
+
+      // Gather strictly 5 pieces of workspace context data
+      const currentGoal = localStorage.getItem('focusnest_focus_goal') || 'No active goal';
+      const highPrioTasks = tasks
+        .filter((t) => t.priority === 'High' && t.column !== 'done')
+        .map((t) => t.text)
+        .join(', ') || 'No high priority tasks';
+
+      const contextBlock = `[FocusNest Workspace State]
+- User name: ${username || 'User'}
+- Current goal: ${currentGoal}
+- High priority tasks: ${highPrioTasks}
+- Focus minutes: ${focusMinutes}
+- Streak: ${streak} days`;
+
+      const promptWithContext = `${contextBlock}\n\nUser request: ${promptText}`;
+
+      const responseText = await askGemini(promptWithContext, conversationHistory);
+
+      const assistantMsgId = `assistant-${Date.now()}`;
+      setAiMessages((prev) => [
+        ...prev,
+        {
+          id: assistantMsgId,
+          sender: 'assistant',
+          text: responseText
+        }
+      ]);
+    } catch (err) {
+      console.error(err);
+      setAiMessages((prev) => [
+        ...prev,
+        {
+          id: `error-${Date.now()}`,
+          sender: 'assistant',
+          text: '🌸 Sorry, my thoughts drifted away. Could you try asking again?'
+        }
+      ]);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   // Daily Motivation Quotes
   const [motivationQuote] = useState<string>(() => {
     const quotes = [
@@ -439,31 +539,7 @@ export default function Workspace() {
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
   };
 
-  // ----------------------------------------------------
-  // AI Suggestions Interaction
-  // ----------------------------------------------------
-  const handleAiAction = (actionType: 'prioritize' | 'schedule' | 'pomodoro' | 'organize'): void => {
-    if (actionType === 'prioritize') {
-      // Sort tasks by priority: High -> Medium -> Low inside columns
-      setTasks((prev) => {
-        const sorted = [...prev].sort((a, b) => {
-          const priorityMap = { High: 3, Medium: 2, Low: 1 };
-          return priorityMap[b.priority] - priorityMap[a.priority];
-        });
-        return sorted;
-      });
-      alert('FocusNest AI ✨ sorted your board! High Priority (Blush Pink) tasks are now at the top of their columns.');
-    } else if (actionType === 'pomodoro') {
-      setTimerMode('pomodoro');
-      resetTimer();
-      alert('FocusNest AI ✨ activated a 25-minute Pomodoro session for you. Press Start to focus!');
-    } else if (actionType === 'schedule') {
-      alert('FocusNest AI ✨ recommends blocking 10:00 AM - 12:00 PM for deep focus work. Break up tasks into smaller chunks.');
-    } else if (actionType === 'organize') {
-      setStreak((prev) => prev + 1); // Increments and uses streak set safely
-      alert(`FocusNest AI ✨ has organized a structured study block. Streak secured (+1 day)! Keep up the beautiful momentum.`);
-    }
-  };
+
 
   const [inviteFeedback, setInviteFeedback] = useState<boolean>(false);
   const [activeRoomId, setActiveRoomId] = useState<string | null>(() => {
@@ -592,7 +668,6 @@ export default function Workspace() {
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter((t) => t.column === 'done').length;
   const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-  const pendingTasksCount = tasks.filter((t) => t.column !== 'done').length;
 
   // First-time user protection render guard
   if (!isOnboardingComplete) {
@@ -1100,45 +1175,115 @@ export default function Workspace() {
               <span style={styles.aiBadgeActive}>Online</span>
             </div>
 
-            {/* Personalized chat balloon */}
-            <div style={styles.aiChatBalloon}>
-              <p style={styles.aiChatText}>
-                🌸 Hi {username || 'Anu'}, {pendingTasksCount > 0 
-                  ? `you have ${pendingTasksCount} tasks waiting on your desk.` 
-                  : 'your desk is fully cleared and ready for new goals!'} Would you like help creating a focus plan?
-              </p>
+            {/* Scrollable Chat Log */}
+            <div style={styles.aiChatContainer} className="custom-scrollbar">
+              {aiMessages.map((msg) => (
+                <div 
+                  key={msg.id} 
+                  style={msg.sender === 'user' ? styles.aiMessageRowUser : styles.aiMessageRowAssistant}
+                >
+                  <div style={msg.sender === 'user' ? styles.aiMessageBubbleUser : styles.aiMessageBubbleAssistant}>
+                    {msg.sender === 'user' ? (
+                      msg.text
+                    ) : (
+                      <>
+                        <div className="ai-message-markdown">
+                          <ReactMarkdown>{msg.text}</ReactMarkdown>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyToClipboard(msg.text, msg.id)}
+                          style={styles.aiMessageCopyBtn}
+                          title="Copy to clipboard"
+                        >
+                          {copyIndex === msg.id ? '✓ Copied' : '📋 Copy'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {aiLoading && (
+                <div style={styles.aiLoadingBubble} className="ai-thinking-indicator">
+                  🌸 FocusNest AI is writing...
+                </div>
+              )}
+              <div ref={chatEndRef} />
             </div>
 
-            <div style={styles.aiSuggestionsGroup}>
-              <div 
-                onClick={() => handleAiAction('prioritize')} 
-                className="ai-suggestion-bubble"
-                style={styles.aiSuggestionBubble}
+            {/* Quick Actions Panel */}
+            <div style={styles.aiQuickActionsTitle}>🌸 Quick Actions:</div>
+            <div style={styles.aiQuickActionsRow} className="custom-scrollbar">
+              <button 
+                type="button"
+                disabled={aiLoading} 
+                onClick={() => handleSendToAi("Create a detailed, cozy study plan based on my goals and tasks.")}
+                style={styles.aiQuickActionBtn}
               >
-                • Prioritize tasks (Sort High priority)
-              </div>
-              <div 
-                onClick={() => handleAiAction('schedule')} 
-                className="ai-suggestion-bubble"
-                style={styles.aiSuggestionBubble}
+                📅 Create Study Plan
+              </button>
+              <button 
+                type="button"
+                disabled={aiLoading} 
+                onClick={() => handleSendToAi("Help me break down my current goal into small, actionable steps I can add to my board.")}
+                style={styles.aiQuickActionBtn}
               >
-                • Create focus schedule
-              </div>
-              <div 
-                onClick={() => handleAiAction('pomodoro')} 
-                className="ai-suggestion-bubble"
-                style={styles.aiSuggestionBubble}
+                ✏️ Break Goal Into Tasks
+              </button>
+              <button 
+                type="button"
+                disabled={aiLoading} 
+                onClick={() => handleSendToAi("Suggest a custom Pomodoro focus and rest cycle schedule for my study session.")}
+                style={styles.aiQuickActionBtn}
               >
-                • Plan Pomodoro session
-              </div>
-              <div 
-                onClick={() => handleAiAction('organize')} 
-                className="ai-suggestion-bubble"
-                style={styles.aiSuggestionBubble}
+                ⏱️ Generate Pomodoro Schedule
+              </button>
+              <button 
+                type="button"
+                disabled={aiLoading} 
+                onClick={() => handleSendToAi("Explain a key study concept simply with a cozy analogy.")}
+                style={styles.aiQuickActionBtn}
               >
-                • Organize study day
-              </div>
+                💡 Explain a Concept
+              </button>
+              <button 
+                type="button"
+                disabled={aiLoading} 
+                onClick={() => handleSendToAi("Give me a cozy boost of study motivation and some advice on avoiding burnout.")}
+                style={styles.aiQuickActionBtn}
+              >
+                🌿 Productivity Advice
+              </button>
             </div>
+
+            {/* Custom Question Form */}
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendToAi(customAiInput);
+              }}
+              style={styles.aiInputForm}
+            >
+              <input
+                type="text"
+                disabled={aiLoading}
+                placeholder={aiLoading ? "Waiting for Gemini..." : "Ask your study companion..."}
+                value={customAiInput}
+                onChange={(e) => setCustomAiInput(e.target.value)}
+                style={styles.aiTextInput}
+              />
+              <button
+                type="submit"
+                disabled={aiLoading || !customAiInput.trim()}
+                style={{
+                  ...styles.aiSendBtn,
+                  cursor: (aiLoading || !customAiInput.trim()) ? 'not-allowed' : 'pointer',
+                  opacity: (aiLoading || !customAiInput.trim()) ? 0.6 : 1
+                }}
+              >
+                Send 🌸
+              </button>
+            </form>
           </section>
 
           {/* INTERACTIVE LOFI VINYL RECORD PLAYER */}
@@ -2193,36 +2338,147 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '2px 8px',
     borderRadius: '20px'
   },
-  aiChatBalloon: {
-    backgroundColor: '#FFFDF8', // Cozy warm cream dialog bubble
-    border: '2px solid #2D2A3A',
-    borderRadius: '16px',
-    borderTopLeftRadius: '2px',
-    padding: '14px 18px',
-    boxShadow: '4px 4px 0px rgba(45, 42, 58, 0.05)',
-    marginBottom: '14px'
-  },
-  aiChatText: {
-    fontSize: '0.82rem',
-    lineHeight: 1.45,
-    color: '#2D2A3A',
-    margin: 0,
-    fontWeight: 550
-  },
-  aiSuggestionsGroup: {
+  aiChatContainer: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '8px'
+    height: '240px',
+    backgroundColor: '#FAF9F6',
+    border: '1.5px solid #EBE7DF',
+    borderRadius: '12px',
+    padding: '12px',
+    overflowY: 'auto',
+    marginBottom: '12px',
+    gap: '12px'
   },
-  aiSuggestionBubble: {
+  aiMessageRowUser: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    width: '100%'
+  },
+  aiMessageRowAssistant: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    width: '100%'
+  },
+  aiMessageBubbleUser: {
+    backgroundColor: '#E9E3F8',
+    color: '#2D2A3A',
+    border: '1.5px solid #2D2A3A',
+    borderRadius: '14px 14px 2px 14px',
+    padding: '10px 14px',
+    fontSize: '0.82rem',
+    lineHeight: '1.45',
+    fontWeight: 550,
+    maxWidth: '85%',
+    boxShadow: '2px 2px 0px rgba(45, 42, 58, 0.05)',
+    boxSizing: 'border-box'
+  },
+  aiMessageBubbleAssistant: {
+    backgroundColor: '#FFFDF8',
+    color: '#2D2A3A',
+    border: '1.5px solid #2D2A3A',
+    borderRadius: '14px 14px 14px 2px',
+    padding: '10px 14px',
+    fontSize: '0.82rem',
+    lineHeight: '1.45',
+    maxWidth: '85%',
+    boxShadow: '2px 2px 0px rgba(45, 42, 58, 0.05)',
+    position: 'relative',
+    boxSizing: 'border-box',
+    display: 'flex',
+    flexDirection: 'column'
+  },
+  aiMessageCopyBtn: {
+    backgroundColor: 'transparent',
+    border: 'none',
+    color: '#6B7280',
+    fontSize: '0.7rem',
+    cursor: 'pointer',
+    alignSelf: 'flex-end',
+    marginTop: '6px',
+    padding: '2px 6px',
+    borderRadius: '4px',
+    transition: 'all 200ms ease',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '2px',
+    fontWeight: 'bold',
+    outline: 'none'
+  },
+  aiLoadingBubble: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFFDF8',
+    color: '#6B7280',
+    border: '1.5px dashed #B794F6',
+    borderRadius: '14px 14px 14px 2px',
+    padding: '8px 12px',
+    fontSize: '0.8rem',
+    fontStyle: 'italic',
+    boxShadow: '2px 2px 0px rgba(45, 42, 58, 0.02)'
+  },
+  aiQuickActionsTitle: {
+    fontSize: '0.8rem',
+    fontWeight: 'bold',
+    color: '#4B5563',
+    marginBottom: '6px'
+  },
+  aiQuickActionsRow: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    marginBottom: '12px',
+    maxHeight: '120px',
+    overflowY: 'auto',
+    paddingRight: '4px'
+  },
+  aiQuickActionBtn: {
     fontSize: '0.78rem',
     color: '#2D2A3A',
     backgroundColor: '#FFFDF8',
-    border: '1.5px solid #EBE7DF',
-    borderRadius: '10px',
+    border: '1.5px solid #2D2A3A',
+    borderRadius: '8px',
     padding: '8px 12px',
+    textAlign: 'left',
     cursor: 'pointer',
-    transition: 'all 200ms ease'
+    transition: 'all 200ms ease',
+    boxShadow: '1.5px 1.5px 0px #2D2A3A',
+    fontWeight: 550,
+    outline: 'none',
+    display: 'block',
+    width: '100%',
+    boxSizing: 'border-box'
+  },
+  aiInputForm: {
+    display: 'flex',
+    gap: '8px',
+    width: '100%',
+    boxSizing: 'border-box'
+  },
+  aiTextInput: {
+    flex: 1,
+    padding: '8px 12px',
+    fontSize: '0.82rem',
+    border: '1.5px solid #2D2A3A',
+    borderRadius: '8px',
+    backgroundColor: '#FFFDF8',
+    outline: 'none',
+    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)',
+    boxSizing: 'border-box'
+  },
+  aiSendBtn: {
+    padding: '8px 14px',
+    fontSize: '0.82rem',
+    fontWeight: 'bold',
+    color: '#FAF9F6',
+    backgroundColor: '#B794F6',
+    border: '1.5px solid #2D2A3A',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    transition: 'all 200ms ease',
+    boxShadow: '1.5px 1.5px 0px #2D2A3A',
+    outline: 'none',
+    boxSizing: 'border-box'
   },
   columnRight: {
     display: 'flex',
@@ -3192,5 +3448,37 @@ const workspaceStyles = `
   to {
     transform: translateY(0);
   }
+}
+
+/* Upgraded FocusNest AI Assistant Styles */
+.ai-message-markdown p {
+  margin: 0 0 8px 0 !important;
+}
+.ai-message-markdown p:last-child {
+  margin-bottom: 0 !important;
+}
+.ai-message-markdown ul, .ai-message-markdown ol {
+  margin: 0 0 8px 0 !important;
+  padding-left: 20px !important;
+}
+.ai-message-markdown li {
+  margin: 0 0 4px 0 !important;
+}
+.ai-message-markdown strong {
+  font-weight: 700 !important;
+}
+.ai-message-markdown code {
+  background-color: rgba(45, 42, 58, 0.06) !important;
+  padding: 2px 4px !important;
+  border-radius: 4px !important;
+  font-family: monospace !important;
+  font-size: 0.85em !important;
+}
+@keyframes aiPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+.ai-thinking-indicator {
+  animation: aiPulse 1.5s infinite ease-in-out !important;
 }
 `;
