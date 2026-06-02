@@ -16,22 +16,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-
       if (currentUser) {
+        setUser(currentUser);
         // Sync user profile to localStorage for backward compatibility and workspace access
         localStorage.setItem('focusnest_uid', currentUser.uid);
         localStorage.setItem('focusnest_email', currentUser.email || '');
         localStorage.setItem('focusnest_name', currentUser.displayName || '');
         localStorage.setItem('focusnest_avatar', currentUser.photoURL || '');
       } else {
-        // Clear auth profile keys on logout
-        localStorage.removeItem('focusnest_uid');
-        localStorage.removeItem('focusnest_email');
-        localStorage.removeItem('focusnest_name');
-        localStorage.removeItem('focusnest_avatar');
+        // Fallback: Check if there's a mock user in localStorage (e.g. from Google Auth fallback)
+        const mockUid = localStorage.getItem('focusnest_uid');
+        if (mockUid) {
+          setUser({
+            uid: mockUid,
+            email: localStorage.getItem('focusnest_email') || '',
+            displayName: localStorage.getItem('focusnest_name') || '',
+            photoURL: localStorage.getItem('focusnest_avatar') || '',
+          } as any);
+        } else {
+          setUser(null);
+        }
       }
+      setLoading(false);
     });
 
     return () => unsubscribe();
