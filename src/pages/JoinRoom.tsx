@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
+import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { db } from '../services/firebase';
 
 export default function JoinRoom() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -24,9 +26,6 @@ export default function JoinRoom() {
       setStatus('joining');
 
       try {
-        const { doc, getDoc, updateDoc, arrayUnion } = await import('firebase/firestore');
-        const { db } = await import('../services/firebase');
-
         const roomRef = doc(db, 'studyRooms', roomId);
         const roomSnap = await getDoc(roomRef);
 
@@ -59,8 +58,8 @@ export default function JoinRoom() {
         // Remove pending room after successful join
         localStorage.removeItem('focusnest_pending_join');
         
-        // Success: Navigate to workspace
-        navigate('/workspace');
+        // Success: Navigate to room page
+        navigate(`/room/${roomId}`);
       } catch (err: any) {
         console.error('Failed to join room', err);
         setStatus('error');

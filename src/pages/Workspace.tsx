@@ -1,6 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
+import { signOut } from 'firebase/auth';
+import { 
+  collection, 
+  getDocs, 
+  doc, 
+  writeBatch, 
+  onSnapshot, 
+  setDoc, 
+  updateDoc, 
+  getDoc 
+} from 'firebase/firestore';
+import { auth, db } from '../services/firebase';
 
 // FocusNest Custom Interfaces
 interface Task {
@@ -27,8 +39,6 @@ export default function Workspace() {
   // Reusable logout function for future integration (signOut from Firebase Auth)
   const handleLogout = async (): Promise<void> => {
     try {
-      const { signOut } = await import('firebase/auth');
-      const { auth } = await import('../services/firebase');
       await signOut(auth);
       navigate('/signup');
     } catch (e) {
@@ -85,8 +95,6 @@ export default function Workspace() {
 
     const loadFromFirestore = async () => {
       try {
-        const { collection, getDocs } = await import('firebase/firestore');
-        const { db } = await import('../services/firebase');
         const querySnapshot = await getDocs(collection(db, 'users', uid, 'tasks'));
         const firestoreTasks: Task[] = [];
         querySnapshot.forEach((doc) => {
@@ -117,9 +125,6 @@ export default function Workspace() {
     // Async Firestore update
     const syncToFirestore = async () => {
       try {
-        const { collection, doc, writeBatch, getDocs } = await import('firebase/firestore');
-        const { db } = await import('../services/firebase');
-        
         const tasksColRef = collection(db, 'users', uid, 'tasks');
         const existingDocs = await getDocs(tasksColRef);
         
@@ -470,11 +475,8 @@ export default function Workspace() {
 
     let unsubscribe = () => {};
 
-    const listenToRoom = async () => {
+    const listenToRoom = () => {
       try {
-        const { doc, onSnapshot } = await import('firebase/firestore');
-        const { db } = await import('../services/firebase');
-        
         unsubscribe = onSnapshot(doc(db, 'studyRooms', activeRoomId), (snapshot) => {
           if (snapshot.exists()) {
             const data = snapshot.data();
@@ -504,9 +506,6 @@ export default function Workspace() {
     const generatedRoomId = `cozy-${randId}`;
 
     try {
-      const { doc, setDoc } = await import('firebase/firestore');
-      const { db } = await import('../services/firebase');
-
       const defaultName = user.displayName || localStorage.getItem('focusnest_name') || 'Study Buddy';
       const defaultAvatar = user.photoURL || localStorage.getItem('focusnest_avatar') || '';
 
@@ -526,6 +525,7 @@ export default function Workspace() {
       
       localStorage.setItem('focusnest_active_room_id', generatedRoomId);
       setActiveRoomId(generatedRoomId);
+      navigate(`/room/${generatedRoomId}`);
     } catch (e) {
       console.error('Failed to create study room', e);
       alert('🌸 Setup issue. Please check your network or try again.');
@@ -536,9 +536,6 @@ export default function Workspace() {
     if (!user || !activeRoomId) return;
 
     try {
-      const { doc, updateDoc, getDoc } = await import('firebase/firestore');
-      const { db } = await import('../services/firebase');
-
       const roomRef = doc(db, 'studyRooms', activeRoomId);
       const roomSnap = await getDoc(roomRef);
 
@@ -1302,6 +1299,23 @@ export default function Workspace() {
                   )}
 
                   <div style={styles.inviteBuddyCard}>
+                    <button 
+                      onClick={() => navigate(`/room/${activeRoomId}`)}
+                      className="btn-scale-primary"
+                      style={{
+                        ...styles.inviteButton,
+                        backgroundColor: '#B794F6',
+                        color: '#FAF9F6',
+                        border: '1.5px solid #2D2A3A',
+                        borderRadius: '8px',
+                        marginBottom: '8px',
+                        width: '100%',
+                        display: 'block'
+                      }}
+                    >
+                      🚪 Return to Study Room
+                    </button>
+
                     <button 
                       onClick={handleCopyInviteLink} 
                       className="btn-scale-secondary"
