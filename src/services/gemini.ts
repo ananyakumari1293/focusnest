@@ -63,6 +63,11 @@ export async function askGemini(prompt: string, history: ChatMessage[] = []): Pr
     return response.text();
   } catch (error) {
     console.error("FULL GEMINI ERROR:", error);
-    return "🌸 Sorry, the AI assistant is taking a short break right now.";
+
+    return `ERROR: ${
+      error instanceof Error
+        ? error.message
+        : JSON.stringify(error)
+    }`;
   }
 }
