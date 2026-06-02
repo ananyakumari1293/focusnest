@@ -566,7 +566,7 @@ export default function Workspace() {
   const handleCopyInviteLink = (): void => {
     if (!activeRoomId) return;
     setInviteFeedback(true);
-    const inviteLink = `https://focusnest-workspace.netlify.app/join/${activeRoomId}`;
+    const inviteLink = `${window.location.origin}/join/${activeRoomId}`;
     navigator.clipboard.writeText(inviteLink);
     setTimeout(() => {
       setInviteFeedback(false);
