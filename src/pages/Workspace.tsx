@@ -279,11 +279,14 @@ export default function Workspace() {
     setAiLoading(true);
 
     try {
-      // Get the last 10 messages from current state as history
-      const conversationHistory: ChatMessage[] = aiMessages.slice(-10).map((msg) => ({
-        role: msg.sender === 'user' ? 'user' : 'model',
-        text: msg.text
-      }));
+      // Get the last 10 messages from current state as history, excluding the welcome message
+      const conversationHistory: ChatMessage[] = aiMessages
+        .filter(msg => msg.id !== 'welcome')
+        .slice(-10)
+        .map((msg) => ({
+          role: msg.sender === 'user' ? 'user' : 'model',
+          text: msg.text
+        }));
 
       // Gather strictly 5 pieces of workspace context data
       const currentGoal = localStorage.getItem('focusnest_focus_goal') || 'No active goal';

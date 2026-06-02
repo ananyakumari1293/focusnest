@@ -31,8 +31,27 @@ export async function askGemini(prompt: string, history: ChatMessage[] = []): Pr
       systemInstruction: SYSTEM_INSTRUCTION
     });
 
+    const sanitizedHistory = [...history];
+
+    while (
+      sanitizedHistory.length > 0 &&
+      sanitizedHistory[0].role === "model"
+    ) {
+      sanitizedHistory.shift();
+    }
+
+    // Ensure strict alternating roles
+    const strictHistory: ChatMessage[] = [];
+    for (const msg of sanitizedHistory) {
+      if (strictHistory.length === 0 || strictHistory[strictHistory.length - 1].role !== msg.role) {
+        strictHistory.push({ ...msg });
+      } else {
+        strictHistory[strictHistory.length - 1].text += "\n" + msg.text;
+      }
+    }
+
     const chat = model.startChat({
-      history: history.map(msg => ({
+      history: strictHistory.map(msg => ({
         role: msg.role,
         parts: [{ text: msg.text }]
       }))
