@@ -22,7 +22,7 @@ export default function Onboarding() {
 
   // Onboarding Form States
   const [step, setStep] = useState<number>(1);
-  const [name, setName] = useState<string>('');
+  const [name, setName] = useState<string>(() => localStorage.getItem('focusnest_name') || '');
   const [role, setRole] = useState<OnboardingRole>('');
   const [wakeTime, setWakeTime] = useState<string>('07:30');
   const [sleepTime, setSleepTime] = useState<string>('23:00');

@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup
+} from "firebase/auth";
 import { auth } from "../services/firebase";
+import { useAuth } from "./AuthContext";
 
 // FocusNest Auth Component - 3-state Unified Auth System
 export default function SignUp() {
   const navigate = useNavigate();
+  const { user, loading } = useAuth();
 
   // Navigation State Controller
   // 'signup' | 'login' | 'forgot'
@@ -16,6 +23,52 @@ export default function SignUp() {
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
+
+  // Password Visibility States
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
+
+  // Auto redirect authenticated users on mount / session change
+  useEffect(() => {
+    if (!loading && user) {
+      const isOnboardingComplete = localStorage.getItem("focusnest_onboarding_complete") === "true";
+      if (isOnboardingComplete) {
+        navigate("/workspace");
+      } else {
+        navigate("/onboarding");
+      }
+    }
+  }, [user, loading, navigate]);
+
+  // Handle clean view switching
+  const handleViewChange = (view: 'signup' | 'login' | 'forgot') => {
+    setAuthView(view);
+    setErrorMessage('');
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+  };
+
+  // Helper to map raw Firebase error codes to cozy FocusNest messages
+  const getCozyErrorMessage = (error: any): string => {
+    const code = error?.code || '';
+    switch (code) {
+      case 'auth/weak-password':
+        return '🌸 Choose a slightly stronger password.';
+      case 'auth/email-already-in-use':
+        return '✨ An account already exists with this email.';
+      case 'auth/invalid-email':
+      case 'auth/user-not-found':
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential':
+        return '☕ Double-check your email and password.';
+      case 'auth/popup-closed-by-user':
+        return '🌿 Google sign-in was cancelled.';
+      case 'auth/network-request-failed':
+        return '⚡ Connection issue. Please try again.';
+      default:
+        return error?.message || 'An unexpected error occurred. Please try again.';
+    }
+  };
 
   // Form Handlers
   const handleSignUpSubmit = async (e: React.FormEvent): Promise<void> => {
@@ -30,16 +83,34 @@ export default function SignUp() {
       return;
     }
     if (password.length < 6) {
-      setErrorMessage('Password must be at least 6 characters.');
+      setErrorMessage('🌸 Choose a slightly stronger password.');
       return;
     }
 
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      // New users immediately enter onboarding
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      const currentUser = result.user;
+
+      const namePart = email.split('@')[0];
+      const defaultName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+
+      try {
+        const { updateProfile } = await import('firebase/auth');
+        await updateProfile(currentUser, { displayName: defaultName });
+      } catch (profileError) {
+        console.error('Failed to update displayName', profileError);
+      }
+
+      // Store initial user info in localStorage for backward compatibility
+      localStorage.setItem('focusnest_uid', currentUser.uid);
+      localStorage.setItem('focusnest_email', currentUser.email || '');
+      localStorage.setItem('focusnest_name', defaultName);
+      localStorage.setItem('focusnest_username', defaultName);
+
+      // Email Signup User: After account creation, always navigate to onboarding
       navigate("/onboarding");
     } catch (err: any) {
-      setErrorMessage(err.message || 'An error occurred during sign up.');
+      setErrorMessage(getCozyErrorMessage(err));
     }
   };
 
@@ -52,11 +123,26 @@ export default function SignUp() {
     }
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // Returning users skip onboarding and enter workspace
-      navigate("/workspace");
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      const currentUser = result.user;
+
+      // Store user info in localStorage
+      localStorage.setItem('focusnest_uid', currentUser.uid);
+      localStorage.setItem('focusnest_email', currentUser.email || '');
+      if (currentUser.displayName) {
+        localStorage.setItem('focusnest_name', currentUser.displayName);
+        localStorage.setItem('focusnest_username', currentUser.displayName);
+      }
+
+      // Email Login User: If onboarding completed, navigate to workspace; else, onboarding
+      const isOnboardingComplete = localStorage.getItem("focusnest_onboarding_complete") === "true";
+      if (isOnboardingComplete) {
+        navigate("/workspace");
+      } else {
+        navigate("/onboarding");
+      }
     } catch (err: any) {
-      setErrorMessage(err.message || 'An error occurred during sign in.');
+      setErrorMessage(getCozyErrorMessage(err));
     }
   };
 
@@ -71,17 +157,36 @@ export default function SignUp() {
     setEmail('');
   };
 
-  // Google Authentication Trigger simulation
-  const triggerGoogleAuth = (): void => {
-    // TODO: Implement Google Authentication
+  // Google Authentication Trigger with popup account selection chooser
+  const triggerGoogleAuth = async (): Promise<void> => {
     setErrorMessage('');
-    
-    // Check onboarding completion flag to decide routing
-    const isOnboardingComplete = localStorage.getItem("focusnest_onboarding_complete") === "true";
-    if (isOnboardingComplete) {
-      navigate("/workspace");
-    } else {
-      navigate("/onboarding");
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({
+      prompt: "select_account"
+    });
+
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const currentUser = result.user;
+
+      // Save user details in localStorage
+      localStorage.setItem('focusnest_uid', currentUser.uid);
+      localStorage.setItem('focusnest_email', currentUser.email || '');
+      localStorage.setItem('focusnest_name', currentUser.displayName || '');
+      localStorage.setItem('focusnest_avatar', currentUser.photoURL || '');
+      if (currentUser.displayName) {
+        localStorage.setItem('focusnest_username', currentUser.displayName);
+      }
+
+      // Google User: If onboarding completed, workspace; else, onboarding
+      const isOnboardingComplete = localStorage.getItem("focusnest_onboarding_complete") === "true";
+      if (isOnboardingComplete) {
+        navigate("/workspace");
+      } else {
+        navigate("/onboarding");
+      }
+    } catch (err: any) {
+      setErrorMessage(getCozyErrorMessage(err));
     }
   };
 
@@ -311,28 +416,68 @@ export default function SignUp() {
 
                   <div style={styles.inputGroup}>
                     <label style={styles.inputLabel}>Password</label>
-                    <input
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      style={styles.textInput}
-                      className="text-input-focus"
-                      required
-                    />
+                    <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        style={{ ...styles.textInput, paddingRight: '46px' }}
+                        className="text-input-focus"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        style={styles.eyeBtn}
+                        aria-label="Toggle password visibility"
+                      >
+                        {showPassword ? (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                          </svg>
+                        ) : (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <div style={styles.inputGroup}>
                     <label style={styles.inputLabel}>Confirm Password</label>
-                    <input
-                      type="password"
-                      placeholder="••••••••"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      style={styles.textInput}
-                      className="text-input-focus"
-                      required
-                    />
+                    <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        style={{ ...styles.textInput, paddingRight: '46px' }}
+                        className="text-input-focus"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        style={styles.eyeBtn}
+                        aria-label="Toggle confirm password visibility"
+                      >
+                        {showConfirmPassword ? (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                          </svg>
+                        ) : (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <button type="submit" style={styles.submitBtn} className="btn-scale-primary">
@@ -359,7 +504,7 @@ export default function SignUp() {
 
                 <div style={styles.switchPrompt}>
                   Already have an account?{' '}
-                  <button onClick={() => { setAuthView('login'); setErrorMessage(''); }} style={styles.switchBtn} className="minimal-link">
+                  <button type="button" onClick={() => handleViewChange('login')} style={styles.switchBtn} className="minimal-link">
                     Sign In
                   </button>
                 </div>
@@ -397,19 +542,39 @@ export default function SignUp() {
                   <div style={styles.inputGroup}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <label style={{ ...styles.inputLabel, marginBottom: 0 }}>Password</label>
-                      <button type="button" onClick={() => { setAuthView('forgot'); setErrorMessage(''); }} style={styles.forgotBtn} className="minimal-link">
+                      <button type="button" onClick={() => handleViewChange('forgot')} style={styles.forgotBtn} className="minimal-link">
                         Forgot Password?
                       </button>
                     </div>
-                    <input
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      style={styles.textInput}
-                      className="text-input-focus"
-                      required
-                    />
+                    <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        style={{ ...styles.textInput, paddingRight: '46px' }}
+                        className="text-input-focus"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        style={styles.eyeBtn}
+                        aria-label="Toggle password visibility"
+                      >
+                        {showPassword ? (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                          </svg>
+                        ) : (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <button type="submit" style={styles.submitBtn} className="btn-scale-primary">
@@ -435,7 +600,7 @@ export default function SignUp() {
 
                 <div style={styles.switchPrompt}>
                   New to FocusNest?{' '}
-                  <button onClick={() => { setAuthView('signup'); setErrorMessage(''); }} style={styles.switchBtn} className="minimal-link">
+                  <button type="button" onClick={() => handleViewChange('signup')} style={styles.switchBtn} className="minimal-link">
                     Create Account
                   </button>
                 </div>
@@ -480,7 +645,7 @@ export default function SignUp() {
                 </div>
 
                 <div style={styles.switchPrompt}>
-                  <button onClick={() => { setAuthView('login'); setErrorMessage(''); }} style={styles.switchBtn} className="minimal-link">
+                  <button type="button" onClick={() => handleViewChange('login')} style={styles.switchBtn} className="minimal-link">
                     ← Back to Login
                   </button>
                 </div>
@@ -659,6 +824,23 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'pointer',
     padding: 0,
     outline: 'none',
+  },
+  eyeBtn: {
+    position: 'absolute',
+    right: '0',
+    top: '0',
+    width: '44px',
+    height: '44px',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    color: '#6B7280',
+    padding: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    outline: 'none',
+    zIndex: 10,
   },
   dividerRow: {
     display: 'flex',

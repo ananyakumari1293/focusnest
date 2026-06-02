@@ -23,18 +23,18 @@ export default function Workspace() {
   }, [isOnboardingComplete, navigate]);
 
   // Reusable logout function for future integration (signOut from Firebase Auth)
-//   const handleLogout = async (): Promise<void> => {
-//     try {
-//       const { signOut } = await import('firebase/auth');
-//       const { auth } = await import('../services/firebase');
-//       await signOut(auth);
-//       navigate('/signup');
-//     } catch (e) {
-//       console.error('Logout error', e);
-//       // Fallback redirect
-//       navigate('/signup');
-//     }
-//   };
+  const handleLogout = async (): Promise<void> => {
+    try {
+      const { signOut } = await import('firebase/auth');
+      const { auth } = await import('../services/firebase');
+      await signOut(auth);
+      navigate('/signup');
+    } catch (e) {
+      console.error('Logout error', e);
+      // Fallback redirect
+      navigate('/signup');
+    }
+  };
 
   // Load Google Fonts for beautiful typography
   useEffect(() => {
@@ -490,6 +490,9 @@ export default function Workspace() {
               <span className="sparkle-spark">{motivationQuote}</span>
             </div>
           </div>
+          <button onClick={handleLogout} style={styles.logoutBtn} className="btn-scale-secondary">
+            ☕ Sign Out
+          </button>
         </div>
       </header>
 
@@ -1437,7 +1440,25 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   headerRight: {
     display: 'flex',
-    alignItems: 'center'
+    alignItems: 'center',
+    gap: '12px'
+  },
+  logoutBtn: {
+    backgroundColor: '#FFFDF8',
+    color: '#2D2A3A',
+    border: '1.5px solid #2D2A3A',
+    borderRadius: '10px',
+    padding: '8px 14px',
+    fontSize: '0.82rem',
+    fontWeight: 650,
+    cursor: 'pointer',
+    outline: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    minHeight: '44px',
+    transition: 'all 200ms ease'
   },
   dateBlock: {
     padding: '10px 16px',
