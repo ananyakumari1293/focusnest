@@ -20,9 +20,13 @@ export interface ChatMessage {
 }
 
 export async function askGemini(prompt: string, history: ChatMessage[] = []): Promise<string> {
+  const modelName = "gemini-1.5-pro";
+  console.log("Gemini API Key Exists:", !!apiKey);
+  console.log("Model:", modelName);
+
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
+      model: modelName,
       systemInstruction: SYSTEM_INSTRUCTION
     });
 
@@ -38,7 +42,7 @@ export async function askGemini(prompt: string, history: ChatMessage[] = []): Pr
 
     return response.text();
   } catch (error) {
-    console.error(error);
-    return "🌸 Sorry, the AI assistant is taking a short break right now.";
+    console.error("Gemini Error:", error);
+    throw error;
   }
 }
