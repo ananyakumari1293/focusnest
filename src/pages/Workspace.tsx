@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from './AuthContext';
 
 // FocusNest Custom Interfaces
 interface Task {
@@ -13,6 +14,7 @@ interface Task {
 
 export default function Workspace() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // 1. FIRST-TIME USER PROTECTION: Redirect to /onboarding if not completed
   const isOnboardingComplete = localStorage.getItem('focusnest_onboarding_complete') === 'true';
@@ -61,9 +63,11 @@ export default function Workspace() {
   const [isEditingName, setIsEditingName] = useState<boolean>(false);
   const [nameInput, setNameInput] = useState<string>(username);
 
-  // Initialize tasks from local storage - strict NO MOCK DEMO TASKS
+  // Initialize tasks from local storage - user-specific key
   const [tasks, setTasks] = useState<Task[]>(() => {
-    const saved = localStorage.getItem('focusnest_tasks');
+    const uid = localStorage.getItem('focusnest_uid') || 'default_user';
+    const localKey = `focusnest_tasks_${uid}`;
+    const saved = localStorage.getItem(localKey);
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -74,10 +78,72 @@ export default function Workspace() {
     return []; // Start completely empty so visual empty state renders
   });
 
-  // Sync tasks to local storage
+  // Load from Firestore asynchronously to fetch latest updates for this specific user
   useEffect(() => {
-    localStorage.setItem('focusnest_tasks', JSON.stringify(tasks));
-  }, [tasks]);
+    const uid = user?.uid || localStorage.getItem('focusnest_uid');
+    if (!uid) return;
+
+    const loadFromFirestore = async () => {
+      try {
+        const { collection, getDocs } = await import('firebase/firestore');
+        const { db } = await import('../services/firebase');
+        const querySnapshot = await getDocs(collection(db, 'users', uid, 'tasks'));
+        const firestoreTasks: Task[] = [];
+        querySnapshot.forEach((doc) => {
+          firestoreTasks.push(doc.data() as Task);
+        });
+        
+        if (firestoreTasks.length > 0) {
+          setTasks(firestoreTasks);
+          const localKey = `focusnest_tasks_${uid}`;
+          localStorage.setItem(localKey, JSON.stringify(firestoreTasks));
+        }
+      } catch (err) {
+        console.warn('Firestore fetch failed or not configured: ', err);
+      }
+    };
+
+    loadFromFirestore();
+  }, [user?.uid]);
+
+  // Sync tasks to localStorage and Firestore when state changes
+  useEffect(() => {
+    const uid = user?.uid || localStorage.getItem('focusnest_uid');
+    if (!uid) return;
+
+    const localKey = `focusnest_tasks_${uid}`;
+    localStorage.setItem(localKey, JSON.stringify(tasks));
+
+    // Async Firestore update
+    const syncToFirestore = async () => {
+      try {
+        const { collection, doc, writeBatch, getDocs } = await import('firebase/firestore');
+        const { db } = await import('../services/firebase');
+        
+        const tasksColRef = collection(db, 'users', uid, 'tasks');
+        const existingDocs = await getDocs(tasksColRef);
+        
+        const batch = writeBatch(db);
+        
+        // Delete all old tasks
+        existingDocs.forEach((d) => {
+          batch.delete(d.ref);
+        });
+        
+        // Add new tasks
+        tasks.forEach((task) => {
+          const taskDocRef = doc(tasksColRef, task.id);
+          batch.set(taskDocRef, task);
+        });
+        
+        await batch.commit();
+      } catch (err) {
+        console.warn('Firestore sync failed or not configured: ', err);
+      }
+    };
+
+    syncToFirestore();
+  }, [tasks, user?.uid]);
 
   // Pomodoro Timer States
   const [timerMode, setTimerMode] = useState<'pomodoro' | 'short' | 'long'>('pomodoro');
