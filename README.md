@@ -20,10 +20,6 @@
 
 </p>
 
-<p align="center">
-<img src="https://komarev.com/ghpvc/?username=ananyakumari1293&label=Profile%20Views&color=14B8A6&style=for-the-badge"/>
-</p>
-
 </div>
 
 ---
@@ -239,26 +235,6 @@ Generate:
 
 ---
 
-# 🏆 GitHub Achievements
-
-<div align="center">
-
-<img src="https://github-profile-trophy.vercel.app/?username=ananyakumari1293&theme=algolia&no-frame=true&row=1&column=7"/>
-
-</div>
-
----
-
-# 📈 Development Activity
-
-<div align="center">
-
-<img src="https://github-readme-activity-graph.vercel.app/graph?username=ananyakumari1293&bg_color=0d1117&color=2DD4BF&line=14B8A6&point=99F6E4&area=true&hide_border=true"/>
-
-</div>
-
----
-
 # 🚀 Getting Started
 
 ### Clone Repository
@@ -306,26 +282,6 @@ npm run build
 
 ---
 
-# 📊 GitHub Statistics
-
-<div align="center">
-
-<img height="180em" src="https://github-readme-stats.vercel.app/api?username=ananyakumari1293&show_icons=true&theme=transparent&title_color=14B8A6&icon_color=14B8A6"/>
-
-<img height="180em" src="https://github-readme-streak-stats.herokuapp.com/?user=ananyakumari1293&theme=transparent&ring=14B8A6&fire=14B8A6&currStreakLabel=14B8A6"/>
-
-</div>
-
-<br>
-
-<div align="center">
-
-<img height="180em" src="https://github-readme-stats.vercel.app/api/top-langs/?username=ananyakumari1293&layout=compact&theme=transparent&title_color=14B8A6"/>
-
-</div>
-
----
-
 # 🌱 Future Roadmap
 
 * [ ] Personalized AI Assistant
@@ -336,16 +292,6 @@ npm run build
 * [ ] Shared Room Timer Synchronization
 * [ ] AI Progress Insights
 * [ ] Productivity Heatmaps
-
----
-
-# 🐍 Contribution Snake
-
-<div align="center">
-
-![snake gif](https://github.com/ananyakumari1293/ananyakumari1293/blob/output/github-contribution-grid-snake.svg)
-
-</div>
 
 ---
 
