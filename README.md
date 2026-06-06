@@ -144,7 +144,20 @@ Generate:
 ## 🏠 Landing Page
 
 <p align="center">
-<img src="./assets/screenshots/landing.png" width="100%"/>
+<img width="874" height="477" alt="{88953733-4E37-4CAC-8BFD-0168CB1FA9DE}" src="https://github.com/user-attachments/assets/e63edcc5-b093-4c96-9af6-de2660fa6fd1" />
+
+</p>
+
+<p align="center">
+<img width="738" height="420" alt="{A25B2902-3526-4EBB-BCE8-713284546954}" src="https://github.com/user-attachments/assets/eb79fee7-2452-474d-aa88-17a98574f354" />
+
+
+</p>
+<img width="942" height="401" alt="{FE17F204-8035-439D-B250-36C87620590F}" src="https://github.com/user-attachments/assets/6a8b83f0-b4bd-42ba-80a8-11d74e632597" />
+
+<p align="center">
+
+
 </p>
 
 ---
@@ -152,7 +165,8 @@ Generate:
 ## 🔐 Login / Authentication
 
 <p align="center">
-<img src="./assets/screenshots/login.png" width="100%"/>
+<img width="867" height="458" alt="{E525DE6A-6969-438E-ABE3-CB4326AC3952}" src="https://github.com/user-attachments/assets/acbfd929-90d3-4deb-848b-44bdcb252ac9" />
+
 </p>
 
 ---
@@ -160,15 +174,46 @@ Generate:
 ## 🌱 User Onboarding
 
 <p align="center">
-<img src="./assets/screenshots/onboarding.png" width="100%"/>
+<img width="639" height="337" alt="{09704447-5673-4BB4-B8F7-3D40FE02EF89}" src="https://github.com/user-attachments/assets/16d725c0-29b0-4407-a846-298858fa904f" />
+
+
 </p>
+<p align="center">
+<img width="683" height="386" alt="{3829618A-105F-4672-BEC8-6026780415CA}" src="https://github.com/user-attachments/assets/fa9453f8-b5f3-49f9-b1c0-169cf672f13e" />
+
+
+</p>
+<p align="center">
+<img width="670" height="384" alt="{B7E2FCB2-E83E-448E-803D-1AC0D1888137}" src="https://github.com/user-attachments/assets/967f3119-9df3-4c8e-94f0-f87a1782af05" />
+
+
+</p>
+<p align="center">
+<img width="658" height="348" alt="{0976EC37-3BC6-4652-B6CA-847B72F6056C}" src="https://github.com/user-attachments/assets/97bb0d41-90fe-458b-b3f0-c3b1dbbd1606" />
+
+
+</p>
+<p align="center">
+<img width="722" height="415" alt="{BC047119-1116-4138-91E0-982E83445601}" src="https://github.com/user-attachments/assets/eff0fa16-c0d1-4380-b83b-12c05ba96636" />
+
+
+
+</p>
+<p align="center">
+
+<img width="624" height="359" alt="{2BEA3AA1-FB0F-4DB2-8694-C39AB86DF833}" src="https://github.com/user-attachments/assets/287f1729-c941-42ac-9c7b-149e52f990f5" />
+
+
+</p>
+
 
 ---
 
 ## 📋 Workspace Dashboard
 
 <p align="center">
-<img src="./assets/screenshots/workspace.png" width="100%"/>
+<img width="949" height="446" alt="{D46280EC-007A-4438-B1C1-3A43E3AF116F}" src="https://github.com/user-attachments/assets/d63569c5-2214-43c2-a68a-692c08867289" />
+
 </p>
 
 ---
@@ -176,7 +221,8 @@ Generate:
 ## 🤖 AI Study Assistant
 
 <p align="center">
-<img src="./assets/screenshots/ai-assistant.png" width="100%"/>
+<img width="307" height="283" alt="{6F5B4E08-F81C-4057-BAC2-EB15CE3D3142}" src="https://github.com/user-attachments/assets/a8a7eda7-aa66-4364-86bf-a4a756fa4314" />
+
 </p>
 
 ---
@@ -184,7 +230,8 @@ Generate:
 ## 📚 Task Management Board
 
 <p align="center">
-<img src="./assets/screenshots/kanban.png" width="100%"/>
+<img width="368" height="414" alt="{586BB450-414D-42D9-8371-E58EFD15B31B}" src="https://github.com/user-attachments/assets/610a2fc1-0ac6-43f6-b90b-ffb2af240014" />
+
 </p>
 
 ---
@@ -192,7 +239,8 @@ Generate:
 ## ⏱️ Focus Timer
 
 <p align="center">
-<img src="./assets/screenshots/timer.png" width="100%"/>
+<img width="293" height="180" alt="{ED3DDC37-22C1-4647-B250-C1A8911C2FD8}" src="https://github.com/user-attachments/assets/b3c94bbd-220d-41f2-be22-6fbce469d02b" />
+
 </p>
 
 ---
@@ -200,7 +248,8 @@ Generate:
 ## 👥 Collaborative Study Rooms
 
 <p align="center">
-<img src="./assets/screenshots/study-room.png" width="100%"/>
+<img width="278" height="72" alt="{DE263406-E1F7-4750-B9FA-0B2069FFDE67}" src="https://github.com/user-attachments/assets/a3a19de9-e9cc-40f5-b5fd-56aadaeb2f74" />
+
 </p>
 
 ---
@@ -208,7 +257,8 @@ Generate:
 ## 🎵 Spotify Integration
 
 <p align="center">
-<img src="./assets/screenshots/spotify.png" width="100%"/>
+<img width="276" height="98" alt="{7B85E552-9320-4FF8-A820-79A7434E35BA}" src="https://github.com/user-attachments/assets/3c8da0fd-6701-470b-be7a-d7b712ef2aed" />
+
 </p>
 
 ---
