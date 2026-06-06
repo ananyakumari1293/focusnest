@@ -5,6 +5,7 @@ import Onboarding from './pages/Onboarding';
 import Workspace from './pages/Workspace';
 import JoinRoom from './pages/JoinRoom';
 import Room from './pages/Room';
+import SpotifyCallback from './pages/SpotifyCallback';
 import { AuthProvider, ProtectedRoute } from './pages/AuthContext';
 
 export default function App() {
@@ -17,7 +18,9 @@ export default function App() {
         <Route path="/workspace" element={<ProtectedRoute><Workspace /></ProtectedRoute>} />
         <Route path="/join/:roomId" element={<JoinRoom />} />
         <Route path="/room/:roomId" element={<Room />} />
+        <Route path="/callback" element={<SpotifyCallback />} />
       </Routes>
     </AuthProvider>
   );
 }
+

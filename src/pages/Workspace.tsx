@@ -16,6 +16,7 @@ import {
 import { auth, db } from '../services/firebase';
 import { askGemini, type ChatMessage } from '../services/gemini';
 import ReactMarkdown from 'react-markdown';
+import { loginWithSpotify, logoutSpotify, getCurrentSpotifyUser, type SpotifyUser } from '../services/spotify';
 
 // FocusNest Custom Interfaces
 interface Task {
@@ -37,6 +38,26 @@ interface RoomMember {
 export default function Workspace() {
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const [spotifyUser, setSpotifyUser] = useState<SpotifyUser | null>(null);
+
+  useEffect(() => {
+    setSpotifyUser(getCurrentSpotifyUser());
+  }, []);
+
+  const handleSpotifyConnect = async () => {
+    try {
+      await loginWithSpotify();
+    } catch (err) {
+      console.error('Failed to start Spotify login:', err);
+      alert('Failed to connect with Spotify. 🌸');
+    }
+  };
+
+  const handleSpotifyDisconnect = () => {
+    logoutSpotify();
+    setSpotifyUser(null);
+  };
 
   // 1. FIRST-TIME USER PROTECTION: Redirect to /onboarding if not completed
   const isOnboardingComplete = localStorage.getItem('focusnest_onboarding_complete') === 'true';
@@ -1353,6 +1374,32 @@ export default function Workspace() {
               </div>
             </div>
 
+            {/* Spotify integration section */}
+            <div style={styles.spotifyIntegrationContainer}>
+              {spotifyUser ? (
+                <div style={styles.spotifyConnectedState}>
+                  <div style={styles.spotifyProfilePicContainer}>
+                    {spotifyUser.images && spotifyUser.images.length > 0 ? (
+                      <img src={spotifyUser.images[0].url} alt={spotifyUser.display_name} style={styles.spotifyProfilePic} />
+                    ) : (
+                      <div style={styles.spotifyProfileFallback}>{spotifyUser.display_name.charAt(0).toUpperCase()}</div>
+                    )}
+                  </div>
+                  <div style={styles.spotifyInfo}>
+                    <span style={styles.spotifyConnectedStatus}>🟢 Spotify Connected</span>
+                    <h4 style={styles.spotifyName}>{spotifyUser.display_name}</h4>
+                  </div>
+                  <button onClick={handleSpotifyDisconnect} style={styles.spotifyDisconnectBtn} title="Disconnect Spotify">
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <button onClick={handleSpotifyConnect} style={styles.spotifyConnectBtn} className="btn-scale-secondary">
+                  🎵 Connect Spotify
+                </button>
+              )}
+            </div>
+
             {/* Music notes floating effect */}
             {isPlayingLofi && (
               <div style={styles.musicNotesOverlay}>
@@ -2493,6 +2540,101 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexDirection: 'column',
     gap: '14px',
     position: 'relative'
+  },
+  spotifyIntegrationContainer: {
+    marginTop: '12px',
+    borderTop: '1.5px dashed #EBE7DF',
+    paddingTop: '12px',
+    width: '100%',
+    boxSizing: 'border-box'
+  },
+  spotifyConnectedState: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    backgroundColor: '#ECFDF5',
+    border: '1.5px solid #2D2A3A',
+    borderRadius: '10px',
+    padding: '10px 12px',
+    position: 'relative',
+    boxSizing: 'border-box'
+  },
+  spotifyProfilePicContainer: {
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    overflow: 'hidden',
+    border: '1.5px solid #2D2A3A',
+    flexShrink: 0
+  },
+  spotifyProfilePic: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover'
+  },
+  spotifyProfileFallback: {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FAF9F6',
+    color: '#2D2A3A',
+    fontWeight: 'bold',
+    fontSize: '0.85rem'
+  },
+  spotifyInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1px',
+    flexGrow: 1,
+    minWidth: 0
+  },
+  spotifyConnectedStatus: {
+    fontSize: '0.65rem',
+    fontWeight: 'bold',
+    color: '#15803D'
+  },
+  spotifyName: {
+    fontSize: '0.82rem',
+    fontWeight: 'bold',
+    color: '#2D2A3A',
+    margin: 0,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis'
+  },
+  spotifyDisconnectBtn: {
+    backgroundColor: 'transparent',
+    border: 'none',
+    color: '#9CA3AF',
+    cursor: 'pointer',
+    fontSize: '0.78rem',
+    padding: '4px',
+    transition: 'color 200ms ease',
+    outline: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  spotifyConnectBtn: {
+    width: '100%',
+    padding: '10px 0',
+    fontSize: '0.82rem',
+    fontWeight: 'bold',
+    backgroundColor: '#FFFDF8',
+    color: '#2D2A3A',
+    border: '1.5px solid #2D2A3A',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    transition: 'all 200ms ease',
+    outline: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    boxSizing: 'border-box',
+    boxShadow: '1.5px 1.5px 0px #2D2A3A'
   },
   vinylDeckContainer: {
     display: 'flex',
